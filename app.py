@@ -1,5 +1,8 @@
 import pickle
-
+import pickle5 as pickle5
+import numpy as np
+from keras.models import load_model
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 from flask import Flask, jsonify, request
 from flasgger import LazyJSONEncoder, LazyString, Swagger, swag_from
 from cleansing import cleanse_text
@@ -30,15 +33,44 @@ swagger_config = {
 
 swagger = Swagger(app, template=swagger_template, config=swagger_config)
 
-
-
 def getFeatureExtractionFile(option):
     feature_extraction_file_name = './resources/feature_extraction/tfidf/tf-idf_feature.pickle' if option == 'TF-IDF' else './resources/feature_extraction/bow/bow_feature.pickle'
     return feature_extraction_file_name
 
+@swag_from('docs/lstm_text.yml', methods=['POST'])
+@app.route('/lstm_text', methods=['POST'])
+def lstm_sentiment_prediction():
+    text = request.form.get('text')
+    cleaned_text = cleanse_text(text)
+    sentiment = ['negative', 'neutral', 'positive']
+
+    input = [cleaned_text]
+    tokenizer_file = open('./resources/feature_extraction/tokenizer/tokenizer.pickle', 'rb')
+    tokenizer = pickle5.load(tokenizer_file)
+    tokenizer_file.close()
+
+    predicted = tokenizer.texts_to_sequences(input) 
+    pad_sequence_file = open('./resources/pad_sequence/x_pad_sequences.pickle','rb')
+    feature_file = pickle5.load(pad_sequence_file)
+    pad_sequence_file.close()
+
+    guess = pad_sequences(predicted, maxlen=feature_file.shape[1])
+    model = load_model('./resources/model/lstm/model.h5')
+    prediction = model.predict(guess)
+    polarity = np.argmax(prediction[0])
+
+    json_response = {
+        'status_code': 200,
+        'description': 'Sentiment Prediction',
+        'text': text,
+        'sentiment': sentiment[polarity]
+    }
+    response_data = jsonify(json_response)
+    return response_data
+
 @swag_from('docs/nn_text.yml', methods=['POST'])
 @app.route('/nn_text', methods=['POST'])
-def nn_sentiment_predict():
+def nn_sentiment_prediction():
     text = request.form.get('text')
     option = request.form.get('feature_extraction')
     cleaned_text = cleanse_text(text)

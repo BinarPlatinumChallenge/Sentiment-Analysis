@@ -1,7 +1,7 @@
 tags:
-  - name: Text - Sentiment Prediction
+  - name: Text - Sentiment Prediction using Neural Network
 get:
-  description: Predict sentimen based on text input
+  description: Predict sentiment based on text input
 parameters: 
   - name: text
     in: formData
