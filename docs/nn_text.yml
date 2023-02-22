@@ -1,5 +1,5 @@
 tags:
-  - name: Text - Sentiment Predict
+  - name: Text - Sentiment Prediction
 get:
   description: Predict sentimen based on text input
 parameters: 

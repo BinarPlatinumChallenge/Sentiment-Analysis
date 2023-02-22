@@ -58,7 +58,7 @@ def nn_sentiment_predict():
 
     json_response = {
         'status_code': 200,
-        'description': 'Sentiment Predict',
+        'description': 'Sentiment Prediction',
         'feature_extraction': option,
         'text': text,
         'sentiment': sentiment
