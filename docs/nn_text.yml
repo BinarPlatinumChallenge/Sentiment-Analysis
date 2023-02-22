@@ -1,0 +1,21 @@
+tags:
+  - name: Text - Sentiment Predict
+get:
+  description: Predict sentimen based on text input
+parameters: 
+  - name: text
+    in: formData
+    required: true
+    type: string
+  - name: feature_extraction
+    in: formData
+    required: true
+    type: string
+    enum: ['TF-IDF', 'BOW']
+responses:
+  '200':
+    description: Successful Response
+  '400':
+    description: Bad Request
+  '500':
+    description: Internal Server Error
