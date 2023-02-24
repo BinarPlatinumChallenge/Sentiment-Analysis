@@ -15,7 +15,7 @@ swagger_template = dict(
       'version':  LazyString(lambda: '1.0.0'),
       'description': LazyString(lambda: 'API Documentation for sentiment predict')
     },
-    host = LazyString(lambda: request.host)
+    host = LazyString(lambda: request.host) 
 )
 
 swagger_config = {
