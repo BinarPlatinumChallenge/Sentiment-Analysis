@@ -37,6 +37,10 @@ def getFeatureExtractionFile(option):
     feature_extraction_file_name = './resources/feature_extraction/tfidf/tf-idf_feature.pickle' if option == 'TF-IDF' else './resources/feature_extraction/bow/bow_feature.pickle'
     return feature_extraction_file_name
 
+def getModel(option):
+    model_file = './resources/model/nn/model_tfidf.pickle' if option == 'TF-IDF' else './resources/model/nn/model_bow.pickle'
+    return model_file
+
 @swag_from('docs/lstm_text.yml', methods=['POST'])
 @app.route('/lstm_text', methods=['POST'])
 def lstm_sentiment_prediction():
@@ -76,16 +80,18 @@ def nn_sentiment_prediction():
     cleaned_text = cleanse_text(text)
 
     feature_extraction_file_name = getFeatureExtractionFile(option)
-    print(feature_extraction_file_name)
     feature_extraction_file = open(feature_extraction_file_name, 'rb')
-    tfidf_fe = pickle.load(feature_extraction_file)
+    feature_extraction = pickle.load(feature_extraction_file)
     feature_extraction_file.close()
 
-    model_file = open('./resources/model/nn/model_tfidf.pickle', 'rb')
+    model_file = open(getModel(option), 'rb')
     model = pickle.load(model_file)
     model_file.close()
 
-    text_transform = tfidf_fe.transform([cleaned_text])
+    print(feature_extraction_file_name)
+    print(getModel(option))
+
+    text_transform = feature_extraction.transform([cleaned_text])
     sentiment = model.predict(text_transform)[0]
 
     json_response = {
