@@ -38,7 +38,7 @@ def getFeatureExtractionFile(option):
     return feature_extraction_file_name
 
 def getModel(option):
-    model_file = './resources/model/nn/model_tfidf.pickle' if option == 'TF-IDF' else './resources/model/nn/model_bow.pickle'
+    model_file = './resources/model/nn/tfidf_model.pickle' if option == 'TF-IDF' else './resources/model/nn/bow_model.pickle'
     return model_file
 
 @swag_from('docs/lstm_text.yml', methods=['POST'])
@@ -87,9 +87,6 @@ def nn_sentiment_prediction():
     model_file = open(getModel(option), 'rb')
     model = pickle.load(model_file)
     model_file.close()
-
-    print(feature_extraction_file_name)
-    print(getModel(option))
 
     text_transform = feature_extraction.transform([cleaned_text])
     sentiment = model.predict(text_transform)[0]
