@@ -1,0 +1,24 @@
+tags:
+  - name: File - Sentiment Prediction using Neural Network
+get:
+  description: Predict sentiment based on file input
+consumes:
+  - multipart/form-data
+parameters: 
+  - name: file
+    in: formData
+    required: true
+    type: file
+    description: Upload your CSV File (Data have to be on the first column of the CSV)
+  - name: feature_extraction
+    in: formData
+    required: true
+    type: string
+    enum: ['TF-IDF', 'BOW']
+responses:
+  '200':
+    description: Successful Response
+  '400':
+    description: Bad Request
+  '500':
+    description: Internal Server Error

@@ -1,13 +1,27 @@
+import sqlite3
 import pickle
+import os
+import pandas as pd
 import pickle5 as pickle5
 import numpy as np
+import uuid
+
+from datetime import datetime
+from io import BytesIO
 from keras.models import load_model
+from werkzeug.utils import secure_filename
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from flask import Flask, jsonify, request
+from flask import Flask, send_file, flash, redirect, jsonify, request
 from flasgger import LazyJSONEncoder, LazyString, Swagger, swag_from
 from cleansing import cleanse_text
 
-app = Flask(__name__)
+UPLOAD_FOLDER = './uploads'
+DOWNLOAD_FOLDER = './downloads'
+ALLOWED_EXTENSIONS = {'csv'}
+
+app = Flask(__name__, static_url_path='/static')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['DOWNLOAD_FOLDER'] = DOWNLOAD_FOLDER
 app.json_encoder = LazyJSONEncoder
 swagger_template = dict(
     info = {
@@ -33,13 +47,41 @@ swagger_config = {
 
 swagger = Swagger(app, template=swagger_template, config=swagger_config)
 
-def getFeatureExtractionFile(option):
-    feature_extraction_file_name = './resources/feature_extraction/tfidf/tf-idf_feature.pickle' if option == 'TF-IDF' else './resources/feature_extraction/bow/bow_feature.pickle'
-    return feature_extraction_file_name
+#database connection
+conn = sqlite3.connect('db/sentiment-analysis.db', check_same_thread=False)
+c = conn.cursor()
+print('Opened database successfully')
 
-def getModel(option):
-    model_file = './resources/model/nn/tfidf_model.pickle' if option == 'TF-IDF' else './resources/model/nn/bow_model.pickle'
-    return model_file
+c.execute('''CREATE TABLE IF NOT EXISTS data (uuid text, file text, download_path text, text text, model text, feature_extraction text, sentiment text);''')
+print('Table created successfully')
+
+tfidf_feature_file = open('./resources/feature_extraction/tfidf/tf-idf_feature.pickle', 'rb')
+tfidf_feature = pickle.load(tfidf_feature_file)
+tfidf_feature_file.close()
+
+bow_feature_file = open('./resources/feature_extraction/bow/bow_feature.pickle', 'rb')
+bow_feature = pickle.load(bow_feature_file)
+bow_feature_file.close()
+
+tfidf_model_file = open('./resources/model/nn/tfidf_model.pickle', 'rb')
+tfidf_model = pickle.load(tfidf_model_file)
+tfidf_model_file.close()
+
+bow_model_file = open('./resources/model/nn/bow_model.pickle', 'rb')
+bow_model = pickle.load(bow_model_file)
+bow_model_file.close()
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def getNNSentiment(text: str, option: str):
+    cleaned_text = cleanse_text(text)
+    feature_extraction = tfidf_feature if option == 'TF-IDF' else bow_feature
+    model = tfidf_model if option == 'TF-IDF' else bow_model
+    text_transform = feature_extraction.transform([cleaned_text])
+    sentiment = model.predict(text_transform)[0]
+    return sentiment
 
 @swag_from('docs/lstm_text.yml', methods=['POST'])
 @app.route('/lstm_text', methods=['POST'])
@@ -77,20 +119,7 @@ def lstm_sentiment_prediction():
 def nn_sentiment_prediction():
     text = request.form.get('text')
     option = request.form.get('feature_extraction')
-    cleaned_text = cleanse_text(text)
-
-    feature_extraction_file_name = getFeatureExtractionFile(option)
-    feature_extraction_file = open(feature_extraction_file_name, 'rb')
-    feature_extraction = pickle.load(feature_extraction_file)
-    feature_extraction_file.close()
-
-    model_file = open(getModel(option), 'rb')
-    model = pickle.load(model_file)
-    model_file.close()
-
-    text_transform = feature_extraction.transform([cleaned_text])
-    sentiment = model.predict(text_transform)[0]
-
+    sentiment = getNNSentiment(text, option)
     json_response = {
         'status_code': 200,
         'description': 'Sentiment Prediction',
@@ -99,10 +128,44 @@ def nn_sentiment_prediction():
         'sentiment': sentiment
     }
     response_data = jsonify(json_response)
-
-    # c.execute("INSERT INTO data (original_text, cleaned_text) values(?,?)",(text, cleaned_text)) 
-    # conn.commit()
+    
+    c.execute("INSERT INTO data (uuid, text, model, feature_extraction, sentiment) values(?, ?,?,?,?)",(str(uuid.uuid4()), text, 'Neural Network', option, sentiment)) 
+    conn.commit()
     return response_data
+
+@swag_from('docs/nn_file.yml', methods=['POST'])
+@app.route('/nn_file', methods=['POST'])
+def nn_file_sentiment_prediction():
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+    file = request.files['file']
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+    if file and allowed_file(file.filename):
+        option = request.form.get('feature_extraction')
+        file_id = str(uuid.uuid4())
+        filename = secure_filename(file.filename)
+        extension = os.path.splitext(filename)[1]
+        filename = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + extension
+        url_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(url_path)
+        df = pd.read_csv(url_path, encoding='latin-1')
+        df = df.dropna()
+        download_path = os.path.join(app.config['DOWNLOAD_FOLDER'], file_id + extension)
+        df['sentiment'] = df.iloc[:, 0].apply(lambda x: getNNSentiment(x, option))
+        df.to_csv(download_path, header = True, index=False)
+        c.execute('BEGIN TRANSACTION')
+        c.execute("INSERT OR IGNORE INTO data (uuid, file, download_path, model, feature_extraction) values(?,?,?,?,?)",(file_id, url_path, download_path, 'Neural Network', option)) 
+        c.execute('COMMIT')
+        return send_file(download_path, mimetype='text/csv', download_name=file_id + '.csv', as_attachment=True)
+        # json_response = {
+        #     'status_code': 200,
+        #     'description': 'File - Sentiment Analysis Using Neural Network'
+        # }
+        # response_data = jsonify(json_response)
+        # return response_data
 
 @app.route("/")
 def hello_world():
