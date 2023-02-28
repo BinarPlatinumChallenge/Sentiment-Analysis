@@ -71,6 +71,16 @@ bow_model_file = open('./resources/model/nn/bow_model.pickle', 'rb')
 bow_model = pickle.load(bow_model_file)
 bow_model_file.close()
 
+tokenizer_file = open('./resources/feature_extraction/tokenizer/tokenizer.pickle', 'rb')
+tokenizer = pickle.load(tokenizer_file)
+tokenizer_file.close()
+
+pad_sequences_file = open('./resources/feature_extraction/pad_sequence/x_pad_sequences.pickle', 'rb')
+X = pickle.load(pad_sequences_file)
+pad_sequences_file.close()
+
+lstm_model = load_model('./resources/model/lstm/model.h5')
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -83,35 +93,30 @@ def getNNSentiment(text: str, option: str):
     sentiment = model.predict(text_transform)[0]
     return sentiment
 
+def getLSTMSentiment(input_text: str):
+    option = ['negative', 'neutral', 'positive']
+    text = [cleanse_text(input_text)]
+    predicted = tokenizer.texts_to_sequences(text)
+    guess = pad_sequences(predicted, maxlen=X.shape[1])
+    prediction = lstm_model.predict(guess)
+    polarity = np.argmax(prediction[0])
+    sentiment = option[polarity]
+    return sentiment
+
 @swag_from('docs/lstm_text.yml', methods=['POST'])
 @app.route('/lstm_text', methods=['POST'])
 def lstm_sentiment_prediction():
     text = request.form.get('text')
-    cleaned_text = cleanse_text(text)
-    sentiment = ['negative', 'neutral', 'positive']
-
-    input = [cleaned_text]
-    tokenizer_file = open('./resources/feature_extraction/tokenizer/tokenizer.pickle', 'rb')
-    tokenizer = pickle5.load(tokenizer_file)
-    tokenizer_file.close()
-
-    predicted = tokenizer.texts_to_sequences(input) 
-    pad_sequence_file = open('./resources/pad_sequence/x_pad_sequences.pickle','rb')
-    feature_file = pickle5.load(pad_sequence_file)
-    pad_sequence_file.close()
-
-    guess = pad_sequences(predicted, maxlen=feature_file.shape[1])
-    model = load_model('./resources/model/lstm/model.h5')
-    prediction = model.predict(guess)
-    polarity = np.argmax(prediction[0])
-
+    sentiment = getLSTMSentiment(text)
     json_response = {
         'status_code': 200,
         'description': 'Sentiment Prediction',
         'text': text,
-        'sentiment': sentiment[polarity]
+        'sentiment': sentiment
     }
     response_data = jsonify(json_response)
+    c.execute("INSERT INTO data (uuid, text, model, sentiment) values(?,?,?,?)",(str(uuid.uuid4()), text, 'LSTM', sentiment)) 
+    conn.commit()
     return response_data
 
 @swag_from('docs/nn_text.yml', methods=['POST'])
@@ -128,7 +133,6 @@ def nn_sentiment_prediction():
         'sentiment': sentiment
     }
     response_data = jsonify(json_response)
-    
     c.execute("INSERT INTO data (uuid, text, model, feature_extraction, sentiment) values(?, ?,?,?,?)",(str(uuid.uuid4()), text, 'Neural Network', option, sentiment)) 
     conn.commit()
     return response_data
@@ -160,12 +164,34 @@ def nn_file_sentiment_prediction():
         c.execute("INSERT OR IGNORE INTO data (uuid, file, download_path, model, feature_extraction) values(?,?,?,?,?)",(file_id, url_path, download_path, 'Neural Network', option)) 
         c.execute('COMMIT')
         return send_file(download_path, mimetype='text/csv', download_name=file_id + '.csv', as_attachment=True)
-        # json_response = {
-        #     'status_code': 200,
-        #     'description': 'File - Sentiment Analysis Using Neural Network'
-        # }
-        # response_data = jsonify(json_response)
-        # return response_data
+
+@swag_from('docs/lstm_file.yml', methods=['POST'])
+@app.route('/lstm_file', methods=['POST'])
+def lstm_file_sentiment_prediction():
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+    file = request.files['file']
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+    if file and allowed_file(file.filename):
+        file_id = str(uuid.uuid4())
+        filename = secure_filename(file.filename)
+        extension = os.path.splitext(filename)[1]
+        filename = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + extension
+        url_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(url_path)
+        df = pd.read_csv(url_path, encoding='latin-1')
+        df = df.dropna()
+        download_path = os.path.join(app.config['DOWNLOAD_FOLDER'], file_id + extension)
+        df['sentiment'] = df.iloc[:, 0].apply(lambda x: getLSTMSentiment(x))
+        df.to_csv(download_path, header = True, index=False)
+        c.execute('BEGIN TRANSACTION')
+        c.execute("INSERT OR IGNORE INTO data (uuid, file, download_path, model) values(?,?,?,?)",(file_id, url_path, download_path, 'LSTM')) 
+        c.execute('COMMIT')
+        return send_file(download_path, mimetype='text/csv', download_name=file_id + '.csv', as_attachment=True)
+
 
 @app.route("/")
 def hello_world():
