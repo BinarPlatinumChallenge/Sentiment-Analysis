@@ -3,7 +3,6 @@ import nltk
 
 nltk.download('stopwords')
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 stop_words=(stopwords.words('indonesian'))
 
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
@@ -25,24 +24,26 @@ def lowercase(text):
   return text.lower()
 
 def remove_unnecessary_char(text):
-  text = re.sub('\\+n', ' ', text)
-  text = re.sub('\n'," ",text)
-  text = re.sub(r'\brt\b','', text) # r'\b...\b to remove certain word, only at the beginning or end of the word 
-  text = re.sub(r'\buser\b','', text)
-  text = re.sub('((www\.[^\s]+)|(https?://[^\s]+)|(http?://[^\s]+))',' ',text)
-  text = re.sub(':', ' ', text)
-  text = re.sub(';', ' ', text)
-  text = re.sub('\\+n', ' ', text)
-  text = re.sub('\n'," ",text)
-  text = re.sub('\\+', ' ', text)
-  text = re.sub('  +', ' ', text)
-  text = re.sub(r'pic.twitter.com.[\w]+', '', text)
-  text = re.sub(r'[^\x00-\x7F]+',' ', text) 
-  text = re.sub(r'‚Ä¶', '', text)
+  text = re.sub('\\+n', ' ', text) # remove every new line
+  text = re.sub('\n',' ',text) # remove every single new line
+  text = re.sub('\\+', ' ', text) # remomove unessessary character
+  text = re.sub(r'\brt\b','', text) # r'\b...\b to remove certain word, only at the beginning or end of the word for 'rt' 
+  text = re.sub(r'\buser\b','', text) # r'\b...\b to remove certain word, only at the beginning or end of the word for 'user'
+  text = re.sub(r'\burl\b','', text)
+  text = re.sub(r'\bnurl\b','', text)
+  text = re.sub('&lt;/?[a-z]+&gt;', '', text)
+  text = re.sub('&amp', '', text)
+  text = re.sub('((www\.[^\s]+)|(https?://[^\s]+)|(http?://[^\s]+))',' ',text) # remomove unessessary character 
+  text = re.sub(':', ' ', text) # remomove special character 
+  text = re.sub(';', ' ', text) 
+  text = re.sub('  +', ' ', text) 
+  text = re.sub(r'pic.twitter.com.[\w]+', '', text) # remomove unessessary character 
+  text = re.sub(r'[^\x00-\x7F]+',' ', text)  
+  text = re.sub(r'‚Ä¶', '', text)  
   to_delete = ['hypertext', 'transfer', 'protocol', 'over', 'secure', 'socket', 'layer', 'dtype', 'tweet', 'name', 'object'
-                 ,'twitter','com', 'pic', ' ya ']
-  for word in to_delete:
-      text = re.sub(word,'', text)
+                 ,'twitter','com', 'pic'] # delete another unessessary words
+  for word in to_delete: 
+      text = re.sub(word,'', text) # remove extra space
       text = re.sub(word.upper(),' ',text)
   return text
 
@@ -63,10 +64,10 @@ def remove_stopword(text):
     return text
 
 def remove_emoticon_byte(text):
-    text = text.replace("\\", " ")
-    text = re.sub('x..', ' ', text)
-    text = re.sub(' n ', ' ', text)
-    return text
+   text = text.replace("\\", " ")
+   text = re.sub(r'\bx..', ' ', text)
+   text = re.sub(' n ', ' ', text)
+   return text
 
 def remove_early_space(text):
     if text[0] == ' ':
@@ -84,14 +85,21 @@ def handleTidak(text):
 def stemming(text):
     return stemmer.stem(text)
 
+def remove_number(text): #6
+    text = ''.join([i for i in text if not i.isdigit()])
+    text = re.sub('  +', ' ', text)
+    text = text.strip()
+    return text
+
 def cleanse_text(text):
-    text = lowercase(text)
-    text = remove_early_space(text)
-    text = remove_nonaplhanumeric(text)
-    text = remove_unnecessary_char(text)
-    text = remove_emoticon_byte(text)
-    text = stemming(text)
-    text = handleTidak(text)
-    text = normalize_alay(text) 
-    text = remove_stopword(text)
+    text = lowercase(text) #1
+    text = remove_unnecessary_char(text) #2
+    text = remove_nonaplhanumeric(text) #3
+    text = remove_emoticon_byte(text) #4
+    text = remove_early_space(text) #5
+    text = remove_number(text) #6
+    text = normalize_alay(text) #8
+    text = remove_stopword(text) #9
+    text = stemming(text) #10
+    text = handleTidak(text) #7
     return text

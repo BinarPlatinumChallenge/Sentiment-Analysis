@@ -7,7 +7,6 @@ import numpy as np
 import uuid
 
 from datetime import datetime
-from io import BytesIO
 from keras.models import load_model
 from werkzeug.utils import secure_filename
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -85,18 +84,17 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def getNNSentiment(text: str, option: str):
-    cleaned_text = cleanse_text(text)
+def getNNSentiment(cleaned_text: str, option: str):
     feature_extraction = tfidf_feature if option == 'TF-IDF' else bow_feature
     model = tfidf_model if option == 'TF-IDF' else bow_model
     text_transform = feature_extraction.transform([cleaned_text])
     sentiment = model.predict(text_transform)[0]
     return sentiment
 
-def getLSTMSentiment(input_text: str):
+def getLSTMSentiment(cleaned_text: str):
+    print(cleaned_text)
     option = ['negative', 'neutral', 'positive']
-    text = [cleanse_text(input_text)]
-    predicted = tokenizer.texts_to_sequences(text)
+    predicted = tokenizer.texts_to_sequences([cleaned_text])
     guess = pad_sequences(predicted, maxlen=X.shape[1])
     prediction = lstm_model.predict(guess)
     polarity = np.argmax(prediction[0])
@@ -107,11 +105,13 @@ def getLSTMSentiment(input_text: str):
 @app.route('/lstm_text', methods=['POST'])
 def lstm_sentiment_prediction():
     text = request.form.get('text')
-    sentiment = getLSTMSentiment(text)
+    cleaned_text = cleanse_text(text)
+    sentiment = getLSTMSentiment(cleaned_text)
     json_response = {
         'status_code': 200,
         'description': 'Sentiment Prediction',
         'text': text,
+        'cleaned_text': cleaned_text,
         'sentiment': sentiment
     }
     response_data = jsonify(json_response)
@@ -124,7 +124,8 @@ def lstm_sentiment_prediction():
 def nn_sentiment_prediction():
     text = request.form.get('text')
     option = request.form.get('feature_extraction')
-    sentiment = getNNSentiment(text, option)
+    cleaned_text = cleanse_text(text)
+    sentiment = getNNSentiment(cleaned_text, option)
     json_response = {
         'status_code': 200,
         'description': 'Sentiment Prediction',
@@ -158,7 +159,8 @@ def nn_file_sentiment_prediction():
         df = pd.read_csv(url_path, encoding='latin-1')
         df = df.dropna()
         download_path = os.path.join(app.config['DOWNLOAD_FOLDER'], file_id + extension)
-        df['sentiment'] = df.iloc[:, 0].apply(lambda x: getNNSentiment(x, option))
+        df['cleaned_text'] = df.iloc[:, 0].apply(cleanse_text)
+        df['sentiment'] = df['cleaned_text'].apply(lambda x: getNNSentiment(x, option))
         df.to_csv(download_path, header = True, index=False)
         c.execute('BEGIN TRANSACTION')
         c.execute("INSERT OR IGNORE INTO data (uuid, file, download_path, model, feature_extraction) values(?,?,?,?,?)",(file_id, url_path, download_path, 'Neural Network', option)) 
@@ -185,7 +187,8 @@ def lstm_file_sentiment_prediction():
         df = pd.read_csv(url_path, encoding='latin-1')
         df = df.dropna()
         download_path = os.path.join(app.config['DOWNLOAD_FOLDER'], file_id + extension)
-        df['sentiment'] = df.iloc[:, 0].apply(lambda x: getLSTMSentiment(x))
+        df['cleaned_text'] = df.iloc[:, 0].apply(cleanse_text)
+        df['sentiment'] = df['cleaned_text'].apply(getLSTMSentiment)
         df.to_csv(download_path, header = True, index=False)
         c.execute('BEGIN TRANSACTION')
         c.execute("INSERT OR IGNORE INTO data (uuid, file, download_path, model) values(?,?,?,?)",(file_id, url_path, download_path, 'LSTM')) 
