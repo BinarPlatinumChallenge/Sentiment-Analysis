@@ -111,7 +111,7 @@ def lstm_sentiment_prediction():
         'status_code': 200,
         'description': 'Sentiment Prediction',
         'text': text,
-        'cleaned_text': cleaned_text,
+        'model': 'LSTM',
         'sentiment': sentiment
     }
     response_data = jsonify(json_response)
