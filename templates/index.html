@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+  {{ bootstrap.load_css() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link href="https://fonts.googleapis.com/css?family=Playfair+Display:700,900" rel="stylesheet">
+  <title>Sentiment Prediction</title>
+</head>
+<body>
+  <br/><br/>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="predict-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+          <h1 class="display-4">Predict Sentiment</h1>
+          <form action="{{ url_for('homepage') }}" method="POST">
+            <div class="form-group row">
+              <label for="inputText" class="col-sm-2 col-form-label">Text</label>
+              <div class="col-sm-10">
+                <input value="{{input}}" type="text" name="input_text" class="form-control" id="input_text" aria-describedby="text">
+              </div>
+            </div>
+            <div class="form-group row">
+              <label for="model" class="col-sm-2 col-form-label">Model</label>
+              <div class="col-sm-10">
+                <select class="form-control" id="model" name="model">
+                  <option value="LSTM">LSTM</option>
+                  <option value="NN">Neural Network</option>
+                </select>
+              </div>
+            </div>
+            <div id="feature-extraction-option" class="hide form-group row">
+              <label for="model" class="col-sm-2 col-form-label">Feature Extraction</label>
+              <div class="col-sm-10">
+                <select class="form-control" id="feature_extraction" name="feature_extraction">
+                  <option value="TF-IDF">TF-IDF</option>
+                  <option value="BOW">Bag of Words</option>
+                </select>
+              </div>
+            </div>
+            <button id="predict-button" type="submit" class="btn btn-primary">Predict</button>
+          </form>
+          <div id="result" class="hide form-group text-left">
+            <div class="col-sm-12">
+              <p class="lead">Result:</p>
+              <table class="table">
+                <tr>
+                  <td>Text</td>
+                  <td>:</td>
+                  <td><p id="result-text"></p></td>
+                </tr>
+                <tr>
+                  <td>Model</td>
+                  <td>:</td>
+                  <td><p id="result-model"></p></td>
+                </tr>
+                <tr class="hide" id="feature-extraction-row">
+                  <td>Feature extraction</td>
+                  <td>:</td>
+                  <td><p id="result-feature-extraction"></p></td>
+                </tr>
+                <tr>
+                  <td>Sentiment</td>
+                  <td>:</td>
+                  <td><p id="result-sentiment"></p></td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{ bootstrap.load_js() }}
+  <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>

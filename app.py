@@ -6,11 +6,12 @@ import pickle5 as pickle5
 import numpy as np
 import uuid
 
+from flask_bootstrap import Bootstrap4
 from datetime import datetime
 from keras.models import load_model
 from werkzeug.utils import secure_filename
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from flask import Flask, send_file, flash, redirect, jsonify, request
+from flask import Flask, send_file, render_template, flash, redirect, jsonify, request
 from flasgger import LazyJSONEncoder, LazyString, Swagger, swag_from
 from cleansing import cleanse_text
 
@@ -22,6 +23,8 @@ app = Flask(__name__, static_url_path='/static')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['DOWNLOAD_FOLDER'] = DOWNLOAD_FOLDER
 app.json_encoder = LazyJSONEncoder
+bootstrap = Bootstrap4(app)
+
 swagger_template = dict(
     info = {
       'title':  LazyString(lambda: 'Sentiment Predict'),
@@ -195,10 +198,23 @@ def lstm_file_sentiment_prediction():
         c.execute('COMMIT')
         return send_file(download_path, mimetype='text/csv', download_name=file_id + '.csv', as_attachment=True)
 
+@app.route('/sentiment', methods=['POST'])
+def lstm_sentiment():
+    text = request.form.get('text')
+    model = request.form.get('model')
+    cleaned_text = cleanse_text(text)
+    if model == 'LSTM':
+        sentiment = getLSTMSentiment(cleaned_text)
+        response = {'status_code': 200, 'text': text, 'sentiment': sentiment}
+    if model == 'NN':
+        feature_extraction = request.form.get('feature_extraction')
+        sentiment = getNNSentiment(cleaned_text, feature_extraction)
+        response = {'status_code': 200, 'text': text, 'sentiment': sentiment, 'feature_extraction': feature_extraction}    
+    return jsonify(response)
 
-@app.route("/")
-def hello_world():
-    return "<p>Hello, World!</p>"
+@app.route("/", methods =["GET", "POST"])
+def homepage():
+    return render_template('index.html')
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
