@@ -1,33 +1,64 @@
 # Sentiment Analysis on Twitter
 
-## Run this project
+To run the project, please follow these steps: 
+<br>
+
+> ### Create python environment 
+<br>
 After project cloned, you have to create env.
 
-MacOs
+- MacOs
 ```
 python3 -m venv venv
 ```
 
-Windows
+- Windows
 ```
  py -3 -m venv venv
 ```
+<br>
 
-Activate the corresponding environment:
-MacOs
+> ### Activate python environment 
+<br> 
+In order to activate the corresponding environment, you can use below script
+
+- MacOs
 ```
 . venv/bin/activate
 ```
 
-Windows
+- Windows
 ```
 venv\Scripts\activate
 ```
+<br>
+
+> ### Install packages 
+<br>
 
 Then install all required packages:
 ```
 pip install `required packages`
 ```
+If your python's version is 3, we suggest using `pip3 install` instead of `pip install`
+<br>
+<br>
+
+> ### Create folders
+<br>
+Before you start the project, you have to make 3 folders
+
+`downloads` 
+: save all processed files\
+`uploads` 
+: save all files which users uploaded\
+`db`
+: save sqllite file
+<br>
+<br>
+
+> ### Run project
+<br>
 
 To start the project:
 ```
